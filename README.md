@@ -7,8 +7,8 @@ bank formats.
 
 ## In production
 
-The core reconciliation engine from this repository has been adapted and
-deployed as part of a client solution by Survetrics, where I work,
+**The core reconciliation engine from this repository has been adapted and
+deployed as part of a client solution by Survetrics**, where I work,
 covering additional requirements such as multi-user access, persistent
 storage, and an audit trail. That deployment is client-specific and isn't
 linked from here.
