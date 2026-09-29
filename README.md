@@ -1,0 +1,87 @@
+# Data-Reco — Financial Data Reconciliation Tool
+
+A app that reconciles bank / UPI statements against an internal
+member ledger — built for organizations (like a credit cooperative society)
+that need to match incoming payments against member/policy records across
+multiple bank formats.
+
+## What it does
+
+1. **Upload source data** — one or more bank/UPI statement files (the
+   "actual" side: what the bank says came in).
+2. **Upload reference data** — the internal ledger / transactions-report
+   file (the "expected" side: what members were supposed to pay, against
+   which policy).
+3. **Run reconciliation** — the engine matches each bank transaction to a
+   ledger entry by **member ID + date + amount**, and classifies every row
+   as:
+   - **Matched** — bank row and ledger entry agree
+   - **Partially matched** — same member/date but amount differs, or split
+     across multiple ledger lines
+   - **Unmatched** — no corresponding ledger entry found
+4. **Search** — a search box (top-right) to look up any transaction
+   number/UTR/RRN, member name, or policy number across everything loaded
+   into the session, plus any saved reconciliation results.
+5. **Review skipped rows** — instead of just a "N rows skipped" count,
+   every skipped row (duplicates, blank rows, unrecognized sheets) is
+   listed in its own table with a reason, so nothing silently disappears.
+
+## Supported bank formats
+
+The parser auto-detects the header row (scanning the first ~30 rows) and
+maps columns by alias, so it works across differently-formatted exports
+without hard-coded column positions. Verified against:
+
+- Laxmi Nagar (regular statement + separate QR/UPI collection sheet)
+- Patna
+- YES Bank (including its RRN-based QR sheet)
+- PNB (shifted-column layout — flagged, handling still being finalized)
+
+Workbooks with multiple sheets are read in full; a sheet with no
+recognizable header is skipped and reported (not silently dropped).
+
+## Key reconciliation logic
+
+- **Match key**: member ID + date + amount — chosen over transaction
+  ID/RRN after measuring that reference-number overlap between bank and
+  ledger data was under 15%.
+- **Multi-member rows**: a single bank row can carry more than one policy
+  number in one cell (e.g. a member paying for two policies in one
+  transfer). The engine checks whether the combined bank amount equals the
+  sum of each named member's own ledger entries for that date — if it
+  balances, it's split into one matched record per member instead of being
+  forced onto whichever member is processed first.
+- **Many-to-one matching**: several bank transactions that together sum to
+  one ledger entry (or vice versa) are matched as a group, not just 1:1.
+
+## Project structure
+
+```
+├── streamlit_app.py     # UI: uploads, search, results, downloads
+├── reconciliation.py    # DataLoader + ReconciliationService (matching engine)
+├── parsers.py            # Bank-format-agnostic Excel/CSV parsing
+├── database.py            # SQLAlchemy models: Member, Transaction, ReconciliationRecord
+└── requirements.txt
+```
+
+## Running locally
+
+```bash
+pip install -r requirements.txt
+streamlit run streamlit_app.py
+```
+
+Each browser session gets its own private SQLite database (created fresh
+in a temp directory) — nothing persists between sessions by design; this
+keeps the tool simple for now but means it doesn't yet support shared,
+multi-user history or an audit trail.
+
+## Known limitations (being tracked)
+
+- Session-only storage — no logins, roles, or persistent history across
+  sessions.
+- Reconciliation currently checks bank → ledger only; a ledger entry with
+  no matching bank row isn't separately flagged.
+- Credit/debit direction isn't yet enforced in the amount comparison.
+- Amounts are stored as `Float`; a move to fixed-point/`Decimal` is planned
+  to avoid paisa-level rounding issues.
