@@ -1,15 +1,23 @@
-# Data-Reco — Financial Data Reconciliation Tool
+# Data-Reco — Financial Data Reconciliation Engine
 
-A app that reconciles bank / UPI statements against an internal
-member ledger — built for organizations (like a credit cooperative society)
-that need to match incoming payments against member/policy records across
-multiple bank formats.
+A Python engine (with a Streamlit interface for local testing) that
+reconciles bank / UPI statements against an internal member ledger —
+matching incoming payments against member/policy records across multiple
+bank formats.
+
+## In production
+
+The core reconciliation engine from this repository has been adapted and
+deployed as part of a client solution by Survetrics, where I work,
+covering additional requirements such as multi-user access, persistent
+storage, and an audit trail. That deployment is client-specific and isn't
+linked from here.
 
 ## What it does
 
-1. **Upload source data** — one or more bank/UPI statement files (the
+1. **Parse source data** — one or more bank/UPI statement files (the
    "actual" side: what the bank says came in).
-2. **Upload reference data** — the internal ledger / transactions-report
+2. **Parse reference data** — the internal ledger / transactions-report
    file (the "expected" side: what members were supposed to pay, against
    which policy).
 3. **Run reconciliation** — the engine matches each bank transaction to a
@@ -19,23 +27,20 @@ multiple bank formats.
    - **Partially matched** — same member/date but amount differs, or split
      across multiple ledger lines
    - **Unmatched** — no corresponding ledger entry found
-4. **Search** — a search box (top-right) to look up any transaction
+4. **Search** — a search interface to look up any transaction
    number/UTR/RRN, member name, or policy number across everything loaded
    into the session, plus any saved reconciliation results.
-5. **Review skipped rows** — instead of just a "N rows skipped" count,
+5. **Review skipped rows** — instead of just an "N rows skipped" count,
    every skipped row (duplicates, blank rows, unrecognized sheets) is
-   listed in its own table with a reason, so nothing silently disappears.
+   listed with a reason, so nothing silently disappears.
 
 ## Supported bank formats
 
 The parser auto-detects the header row (scanning the first ~30 rows) and
 maps columns by alias, so it works across differently-formatted exports
-without hard-coded column positions. Verified against:
-
-- Laxmi Nagar (regular statement + separate QR/UPI collection sheet)
-- Patna
-- YES Bank (including its RRN-based QR sheet)
-- PNB (shifted-column layout — flagged, handling still being finalized)
+without hard-coded column positions. Verified against multiple bank
+statement layouts, including ones that split a regular statement and a
+QR/UPI collection sheet across different tabs of the same workbook.
 
 Workbooks with multiple sheets are read in full; a sheet with no
 recognizable header is skipped and reported (not silently dropped).
@@ -57,7 +62,7 @@ recognizable header is skipped and reported (not silently dropped).
 ## Project structure
 
 ```
-├── streamlit_app.py     # UI: uploads, search, results, downloads
+├── streamlit_app.py     # local test UI: uploads, search, results, downloads
 ├── reconciliation.py    # DataLoader + ReconciliationService (matching engine)
 ├── parsers.py            # Bank-format-agnostic Excel/CSV parsing
 ├── database.py            # SQLAlchemy models: Member, Transaction, ReconciliationRecord
@@ -72,11 +77,11 @@ streamlit run streamlit_app.py
 ```
 
 Each browser session gets its own private SQLite database (created fresh
-in a temp directory) — nothing persists between sessions by design; this
-keeps the tool simple for now but means it doesn't yet support shared,
-multi-user history or an audit trail.
+in a temp directory) — nothing persists between sessions by design. The
+Streamlit UI here exists to exercise and test the engine locally; it was
+not intended as a production interface.
 
-## Known limitations (being tracked)
+## Known limitations (in this repo's version)
 
 - Session-only storage — no logins, roles, or persistent history across
   sessions.
@@ -85,3 +90,7 @@ multi-user history or an audit trail.
 - Credit/debit direction isn't yet enforced in the amount comparison.
 - Amounts are stored as `Float`; a move to fixed-point/`Decimal` is planned
   to avoid paisa-level rounding issues.
+
+## License
+
+*(add your license here)*
